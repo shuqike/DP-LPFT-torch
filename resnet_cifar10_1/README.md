@@ -1,13 +1,14 @@
-# ResNet for ImageNet-Sketch
+# ResNet for [CIFAR-10.1](https://github.com/modestyachts/CIFAR-10.1)
 
 ## Preparation
 
-1. Download dataset
+1. Randomly divide the 2000 datapoints into a training dataset of 1500 images and a test dataset of 500 images.
 
-```python
-from datasets import load_dataset
-dataset = load_dataset('imagenet_sketch', data_dir='./data/')
-```
+2. Use pretrained models on CIFAR-10, ResNet-18 for example:
+    ```python
+    import timm
+    model = timm.create_model("resnet18_cifar10", pretrained=True)
+    ```
 
 ## Single-phase fine-tuning
 
