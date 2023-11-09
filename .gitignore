@@ -2,3 +2,4 @@ resnet_imagenet_sketch/data/*
 resnet_imagenet_sketch/temp/*
 mobilenet_cifar10/temp/*
 .DS_Store
+resnet_mnist/data/*
