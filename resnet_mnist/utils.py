@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 
-def save(state_path, run_id, run_results, epoch, model, optimizer, privacy_engine, train_loader, test_loader):
+def save(state_path, run_id, run_results, epoch, model, optimizer, privacy_engine, train_loader):
     '''
     A checkpoint typically includes not just the model's state_dict (which contains the model's parameters), but also other elements of the training state, like the optimizer state, the epoch number, and potentially the state of the learning rate scheduler if you are using one.
     '''
@@ -13,11 +13,10 @@ def save(state_path, run_id, run_results, epoch, model, optimizer, privacy_engin
             'run_id': run_id,
             'run_results': run_results,
             'epoch': epoch + 1,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'privacy_engine_state': privacy_engine.get_state(),
-            'train_loader': train_loader,
-            'test_loader': test_loader
+            'model': model,
+            'optimizer': optimizer,
+            'privacy_engine': privacy_engine,
+            'train_loader': train_loader
         },
         state_path=state_path
     )
@@ -27,7 +26,7 @@ def save_checkpoint(state, state_path, filename="checkpoint.pth.tar"):
     torch.save(state, os.path.join(state_path, filename))
 
 
-def load_checkpoint(checkpoint_path, model, optimizer, privacy_engine):
+def load_checkpoint(checkpoint_path):
     if os.path.isfile(checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
         # resume random generator states
@@ -37,13 +36,15 @@ def load_checkpoint(checkpoint_path, model, optimizer, privacy_engine):
         if 'cuda_random_state' in checkpoint and torch.cuda.is_available():
             torch.cuda.set_rng_state(checkpoint['cuda_random_state'])
         # resume training states
-        start_epoch = checkpoint['epoch']
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        if 'privacy_engine_state' in checkpoint:
-            privacy_engine.load_state_dict(checkpoint['privacy_engine_state'])
-        # ... Load other states like random number generator states ...
+        run_id = checkpoint['run_id']
+        run_results = checkpoint['run_results']
+        epoch = checkpoint['epoch']
+        model = checkpoint['model']
+        optimizer = checkpoint['optimizer']
+        if 'privacy_engine' in checkpoint:
+            privacy_engine = checkpoint['privacy_engine']
+        train_loader = checkpoint['train_loader']
     else:
         print("No checkpoint found at {}".format(checkpoint_path))
 
-    return start_epoch, model, optimizer, privacy_engine
+    return run_id, run_results, epoch, model, optimizer, privacy_engine, train_loader

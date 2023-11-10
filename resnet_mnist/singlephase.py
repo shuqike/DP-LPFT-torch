@@ -3,6 +3,7 @@ import pickle
 import random
 import datetime
 import argparse
+from typing import List
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -13,15 +14,15 @@ from torchinfo import summary
 from opacus import PrivacyEngine
 from opacus.validators import ModuleValidator
 from get_data import get_dataloader
+import utils
 
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, default=datetime.datetime.now().strftime('%B%d_%H:%M'))
-    parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--ft_type', type=str, choices=['lp', 'ft'])
     parser.add_argument('--n_runs', type=int, default=1)
-    parser.add_argument('--max_epochs', type=int, default=1000)
+    parser.add_argument('--max_epochs', type=int, default=200)
     parser.add_argument('--sigma', type=float, required=True)
     # Delta: The target δ of the (ϵ,δ)-differential privacy guarantee.
     # Generally, it should be set to be less than the inverse of the size of the training dataset.
@@ -42,6 +43,7 @@ def get_args():
                         help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float,
                         help='momentum')
+    parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
     return args
 
@@ -55,7 +57,7 @@ def priv_compatible(model):
     return model
 
 
-def train(args, model, device, train_loader, optimizer, privacy_engine, epoch):
+def train(args, model, device, train_loader, optimizer, privacy_engine, epoch) -> List:
     model.train()
     criterion = nn.CrossEntropyLoss()
     losses = []
@@ -70,16 +72,12 @@ def train(args, model, device, train_loader, optimizer, privacy_engine, epoch):
 
     if not args.disable_dp:
         epsilon = privacy_engine.accountant.get_epsilon(delta=args.delta)
-        print(
-            f"Train Epoch: {epoch} \t"
-            f"Loss: {np.mean(losses):.6f} "
-            f"(ε = {epsilon:.2f}, δ = {args.delta})"
-        )
+        return [epoch, np.mean(losses), epsilon]
     else:
-        print(f"Train Epoch: {epoch} \t Loss: {np.mean(losses):.6f}")
+        return [epoch, np.mean(losses)]
 
 
-def validate(model, device, valid_loader):
+def test(model, device, valid_loader):
     with torch.inference_mode():
         criterion = nn.CrossEntropyLoss()
         test_loss = 0
@@ -107,34 +105,78 @@ def validate(model, device, valid_loader):
         return test_loss, correct / len(valid_loader.dataset)
 
 
-def run(args, state_path, model, train_loader, test_loader):
-    run_results = []
-    for run_id in range(args.n_runs):
-        # Move the model to appropriate device
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = model.to(device)
+def run(run_id, run_results, epoch, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader):
+    # Move the model to appropriate device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    p_model =p_model.to(device)
 
+    one_run_result = []
+    while epoch < args.max_epochs:
+        train_stat = train(args, p_model, device, p_train_loader, p_optimizer, privacy_engine, epoch)
+        test_loss, test_acc = test(p_model, device, test_loader)
+        one_run_result += [train_stat, test_loss, test_acc]
+        save_timer += 1
+        if save_timer % 100 == 0:
+            utils.save(state_path, run_id, run_results, epoch, p_model, p_optimizer, privacy_engine, p_train_loader)
+        epoch += 1
+    run_results.append(one_run_result)
+    with open(os.path.join(state_path, 'run_results.pkl'), 'w') as file:
+        pickle.dump(run_results, file)
+    return run_results
+
+
+def run_all(args, state_path, model, train_loader, test_loader):
+    save_timer = 0
+
+    if args.resume:
+        run_id, run_results, epoch, p_model, p_optimizer, privacy_engine, p_train_loader = utils.load_checkpoint(os.path.join(state_path, "checkpoint.pth.tar"))
+
+    else:
+        run_id = 0
+        run_results = []
+        epoch = 0
+        # Set random seed
+        random.seed(run_id)
+        np.random.seed(run_id)
+        torch.manual_seed(run_id)
         optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+        
         privacy_engine = None
-
         if not args.disable_dp:
             privacy_engine = PrivacyEngine()
-            model, optimizer, train_loader = privacy_engine.make_private(
+            p_model, p_optimizer, p_train_loader = privacy_engine.make_private(
                 module=model,
                 optimizer=optimizer,
                 data_loader=train_loader,
                 noise_multiplier=args.sigma,
                 max_grad_norm=args.max_per_sample_grad_norm,
             )
+        else:
+            p_model, p_optimizer, p_train_loader = model, optimizer, train_loader
 
-        one_run_result = []
-        for epoch in range(args.max_epochs):
-            train(args, model, device, train_loader, optimizer, privacy_engine, epoch)
-            test_loss, test_acc = validate(model, device, test_loader)
-            one_run_result.append(test_loss, test_acc)
-        run_results.append(one_run_result)
-        with open(os.path.join(state_path, 'run_results.pkl'), 'w') as file:
-            pickle.dump(run_results, file)
+    while run_id < args.n_runs:
+        run_results = run(run_id, run_results, epoch, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader)
+
+        # Prepare for the next iteration
+        run_id += 1
+        epoch = 0
+        # Set random seed
+        random.seed(run_id)
+        np.random.seed(run_id)
+        torch.manual_seed(run_id)
+        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+        privacy_engine = None
+        if not args.disable_dp:
+            privacy_engine = PrivacyEngine()
+            p_model, p_optimizer, p_train_loader = privacy_engine.make_private(
+                module=model,
+                optimizer=optimizer,
+                data_loader=train_loader,
+                noise_multiplier=args.sigma,
+                max_grad_norm=args.max_per_sample_grad_norm,
+            )
+        else:
+            p_model, p_optimizer, p_train_loader = model, optimizer, train_loader
 
 
 if __name__ == '__main__':
@@ -142,11 +184,6 @@ if __name__ == '__main__':
     os.makedirs('temp', exist_ok=True)
     state_path = os.path.join('temp/', args.name)
     os.makedirs(state_path, exist_ok=True)
-
-    # Set random seed
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
 
     train_loader, test_loader = get_dataloader(args.batch_size)
 
@@ -188,4 +225,4 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError
 
-    run(args, state_path, model, train_loader, test_loader)
+    run_all(args, state_path, model, train_loader, test_loader)
