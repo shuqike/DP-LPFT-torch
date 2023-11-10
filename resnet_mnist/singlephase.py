@@ -105,7 +105,7 @@ def test(model, device, valid_loader):
         return test_loss, correct / len(valid_loader.dataset)
 
 
-def run(run_id, run_results, epoch, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader):
+def run(save_timer, run_id, run_results, epoch, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader):
     # Move the model to appropriate device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     p_model =p_model.to(device)
@@ -122,7 +122,7 @@ def run(run_id, run_results, epoch, p_model, p_optimizer, p_train_loader, privac
     run_results.append(one_run_result)
     with open(os.path.join(state_path, 'run_results.pkl'), 'w') as file:
         pickle.dump(run_results, file)
-    return run_results
+    return save_timer, run_results
 
 
 def run_all(args, state_path, model, train_loader, test_loader):
@@ -155,7 +155,7 @@ def run_all(args, state_path, model, train_loader, test_loader):
             p_model, p_optimizer, p_train_loader = model, optimizer, train_loader
 
     while run_id < args.n_runs:
-        run_results = run(run_id, run_results, epoch, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader)
+        save_timer, run_results = run(save_timer, run_id, run_results, epoch, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader)
 
         # Prepare for the next iteration
         run_id += 1
@@ -184,6 +184,9 @@ if __name__ == '__main__':
     os.makedirs('temp', exist_ok=True)
     state_path = os.path.join('temp/', args.name)
     os.makedirs(state_path, exist_ok=True)
+    # Save the arguments for this experiment
+    with open(os.path.join(state_path, 'args.pkl'), 'w') as file:
+        pickle.dump(args, file)
 
     train_loader, test_loader = get_dataloader(args.batch_size)
 
