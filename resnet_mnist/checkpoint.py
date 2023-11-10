@@ -4,17 +4,20 @@ import numpy as np
 import torch
 
 
-def save(state_path, epoch, model, optimizer, privacy_engine):
+def save(state_path, run_id, run_results, epoch, model, optimizer, privacy_engine, train_loader, test_loader):
     '''
     A checkpoint typically includes not just the model's state_dict (which contains the model's parameters), but also other elements of the training state, like the optimizer state, the epoch number, and potentially the state of the learning rate scheduler if you are using one.
     '''
     save_checkpoint(
         state={
+            'run_id': run_id,
+            'run_results': run_results,
             'epoch': epoch + 1,
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'privacy_engine_state': privacy_engine.get_state(),
-            # Include states of random number generators and other necessary states
+            'train_loader': train_loader,
+            'test_loader': test_loader
         },
         state_path=state_path
     )

@@ -133,6 +133,8 @@ def run(args, state_path, model, train_loader, test_loader):
             test_loss, test_acc = validate(model, device, test_loader)
             one_run_result.append(test_loss, test_acc)
         run_results.append(one_run_result)
+        with open(os.path.join(state_path, 'run_results.pkl'), 'w') as file:
+            pickle.dump(run_results, file)
 
 
 if __name__ == '__main__':
