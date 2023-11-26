@@ -57,8 +57,7 @@ def priv_compatible(model):
     return model
 
 
-def train(args, model, device, train_loader, optimizer, privacy_engine, epoch) -> List:
-    model.train()
+def train(args, model, device, train_loader, optimizer, privacy_engine) -> List:
     criterion = nn.CrossEntropyLoss()
     losses = []
     for _batch_idx, (data, target) in enumerate(tqdm(train_loader)):
@@ -72,9 +71,9 @@ def train(args, model, device, train_loader, optimizer, privacy_engine, epoch) -
 
     if not args.disable_dp:
         epsilon = privacy_engine.accountant.get_epsilon(delta=args.delta)
-        return [epoch, np.mean(losses), epsilon]
+        return [np.mean(losses), epsilon]
     else:
-        return [epoch, np.mean(losses)]
+        return [np.mean(losses)]
 
 
 def test(model, device, valid_loader):
@@ -112,7 +111,7 @@ def run(save_timer, run_id, run_results, epoch, p_model, p_optimizer, p_train_lo
 
     one_run_result = []
     while epoch < args.max_epochs:
-        train_stat = train(args, p_model, device, p_train_loader, p_optimizer, privacy_engine, epoch)
+        train_stat = train(args, p_model, device, p_train_loader, p_optimizer, privacy_engine)
         test_loss, test_acc = test(p_model, device, test_loader)
         one_run_result += [train_stat, test_loss, test_acc]
         save_timer += 1
