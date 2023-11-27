@@ -15,7 +15,7 @@ import torchvision
 from torchinfo import summary
 from opacus import PrivacyEngine
 from opacus.validators import ModuleValidator
-from get_data import get_dataloader
+from get_data import get_dataloader, get_sampler
 import singlephase_utils as utils
 
 
@@ -23,7 +23,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, default=datetime.datetime.now().strftime('%B%d_%H:%M'))
     parser.add_argument('--ft_type', type=str, choices=['lp', 'ft'])
-    parser.add_argument('--n_runs', type=int, default=1)
+    parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--save_freq', type=int, default=100)
     parser.add_argument('--max_steps', type=int, default=200)
     parser.add_argument('--sigma', type=float, required=True)
@@ -50,6 +50,53 @@ def get_args():
     parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
     return args
+
+
+def get_model(args):
+    if not args.resume:
+        # Set random seed
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        torch.manual_seed(args.seed)
+
+    # Initialize model
+    if args.model == 'resnet18':
+        model = timm.create_model('resnet18', pretrained=True, in_chans=1)
+    elif args.model == 'resnet34':
+        model = timm.create_model('resnet34', pretrained=True, in_chans=1)
+    elif args.model == 'resnet50':
+        model = timm.create_model('resnet50', pretrained=True, in_chans=1)
+    else:
+        raise NotImplementedError
+
+    # Resize and reinitialize the linear head
+    model.fc = torch.nn.Linear(model.fc.weight.shape[1], 10)
+    if args.ft_type == 'lp':
+        # linear probing preparation
+        print('Start linear probing...')
+        model = model.train()
+        for p in model.parameters():
+            p.requires_grad = False
+        for p in model.fc.parameters():
+            p.requires_grad = True
+        # Sanity check of model setting
+        model = priv_compatible(model)
+
+    elif args.ft_type == 'ft':
+        print('Start fine-tuning...')
+        model = model.train()
+        for p in model.parameters():
+            p.requires_grad = True
+        # Sanity check of model setting
+        model = priv_compatible(model)
+
+    else:
+        raise NotImplementedError
+
+    # Move the model to appropriate device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    return model
 
 
 def priv_compatible(model):
@@ -111,39 +158,44 @@ def test(model, device, valid_loader):
         return test_loss, correct / len(valid_loader.dataset)
 
 
-def run(args, run_id, run_results, one_run_result, step, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader):
+def run(args, run_id, run_results, one_run_result, step, sampler, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader):
     # Move the model to appropriate device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     p_model =p_model.to(device)
 
     while step < args.max_steps:
         train_stat, step = train(args, step, p_model, device, p_train_loader, p_optimizer, privacy_engine)
+        print(
+            'model_info',
+            list(p_model._module.fc.parameters())
+        )
         test_loss, test_acc = test(p_model, device, test_loader)
         one_run_result += [train_stat, test_loss, test_acc]
-        utils.save(state_path, run_id, run_results, one_run_result, step, p_model.state_dict())
+        utils.save(state_path, run_id, run_results, one_run_result, step, sampler, p_model, p_optimizer, privacy_engine)
     run_results.append(one_run_result)
     with open(os.path.join(state_path, 'run_results.pkl'), 'wb') as file:
         pickle.dump(run_results, file)
-    return run_results
 
 
-def run_all(args, state_path, model, train_loader, test_loader):
+if __name__ == '__main__':
+    args = get_args()
+    os.makedirs('temp', exist_ok=True)
+    state_path = os.path.join('temp/', args.name)
+    os.makedirs(state_path, exist_ok=True)
+    # Save the arguments for this experiment
+    with open(os.path.join(state_path, 'args.pkl'), 'wb') as file:
+        pickle.dump(args, file)
 
+    model = get_model(args)
+    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    sampler = get_sampler()
+    
     if args.resume:
-        run_id, run_results, one_run_result, step, state_dict = utils.load_checkpoint(os.path.join(state_path, "checkpoint.pth.tar"))
-        model.load_state_dict(state_dict)
+        run_id, run_results, one_run_result, step, sampler_state = utils.load_checkpoint(os.path.join(state_path, "checkpoint.pth.tar"))
+        sampler.set_state(sampler_state)
 
-    else:
-        run_id = 0
-        run_results = []
-        one_run_result = []
-        step = 0
-        # Set random seed
-        random.seed(run_id)
-        np.random.seed(run_id)
-        torch.manual_seed(run_id)
-        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-        
+    sampler, train_loader, test_loader = get_dataloader(args.batch_size, sampler)
+
     privacy_engine = None
     if not args.disable_dp:
         privacy_engine = PrivacyEngine()
@@ -157,79 +209,21 @@ def run_all(args, state_path, model, train_loader, test_loader):
     else:
         p_model, p_optimizer, p_train_loader = model, optimizer, train_loader
 
-    while run_id < args.n_runs:
-        run_results = run(args, run_id, run_results, one_run_result, step, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader)
+    if args.resume:
+        privacy_engine.load_checkpoint(
+            path=os.path.join(state_path, "priv_checkpoint.pth.tar"),
+            module=p_model,
+            optimizer=p_optimizer
+        )
+        print(
+            'resume_model_info',
+            list(p_model._module.fc.parameters())
+        )
 
-        # Prepare for the next iteration
-        run_id += 1
+    else:
+        run_id = 0
+        run_results = []
+        one_run_result = []
         step = 0
-        # Set random seed
-        random.seed(run_id)
-        np.random.seed(run_id)
-        torch.manual_seed(run_id)
-        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-        privacy_engine = None
-        if not args.disable_dp:
-            privacy_engine = PrivacyEngine()
-            p_model, p_optimizer, p_train_loader = privacy_engine.make_private(
-                module=model,
-                optimizer=optimizer,
-                data_loader=train_loader,
-                noise_multiplier=args.sigma,
-                max_grad_norm=args.max_per_sample_grad_norm,
-            )
-        else:
-            p_model, p_optimizer, p_train_loader = model, optimizer, train_loader
 
-
-if __name__ == '__main__':
-    args = get_args()
-    os.makedirs('temp', exist_ok=True)
-    state_path = os.path.join('temp/', args.name)
-    os.makedirs(state_path, exist_ok=True)
-    # Save the arguments for this experiment
-    with open(os.path.join(state_path, 'args.pkl'), 'wb') as file:
-        pickle.dump(args, file)
-
-    train_loader, test_loader = get_dataloader(args.batch_size)
-
-    # Initialize model
-    if args.model == 'resnet18':
-        model = timm.create_model('resnet18', pretrained=True, in_chans=1)
-    elif args.model == 'resnet34':
-        model = timm.create_model('resnet34', pretrained=True, in_chans=1)
-    elif args.model == 'resnet50':
-        model = timm.create_model('resnet50', pretrained=True, in_chans=1)
-    else:
-        raise NotImplementedError
-    
-    # Resize and reinitialize the linear head
-    model.fc = torch.nn.Linear(model.fc.weight.shape[1], 10)
-
-    if args.ft_type == 'lp':
-        # linear probing preparation
-        print('Start linear probing...')
-        model = model.train()
-        for p in model.parameters():
-            p.requires_grad = False
-        for p in model.fc.parameters():
-            p.requires_grad = True
-        # Sanity check of model setting
-        model = priv_compatible(model)
-
-    elif args.ft_type == 'ft':
-        print('Start fine-tuning...')
-        model = model.train()
-        for p in model.parameters():
-            p.requires_grad = True
-        # Sanity check of model setting
-        model = priv_compatible(model)
-
-    else:
-        raise NotImplementedError
-
-    # Move the model to appropriate device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
-
-    run_all(args, state_path, model, train_loader, test_loader)
+    run(args, run_id, run_results, one_run_result, step, sampler, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader)
