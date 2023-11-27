@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 
-def save(state_path, run_id, run_results, epoch, model, optimizer, privacy_engine, train_loader):
+def save(state_path, run_id, run_results, one_run_result, epoch, model, optimizer, privacy_engine, train_loader):
     '''
     A checkpoint typically includes not just the model's state_dict (which contains the model's parameters), but also other elements of the training state, like the optimizer state, the epoch number, and potentially the state of the learning rate scheduler if you are using one.
     '''
@@ -12,6 +12,7 @@ def save(state_path, run_id, run_results, epoch, model, optimizer, privacy_engin
         state={
             'run_id': run_id,
             'run_results': run_results,
+            'one_run_result': one_run_result,
             'epoch': epoch + 1,
             'model': model,
             'optimizer': optimizer,
@@ -38,6 +39,7 @@ def load_checkpoint(checkpoint_path):
         # resume training states
         run_id = checkpoint['run_id']
         run_results = checkpoint['run_results']
+        one_run_result = checkpoint['one_run_result']
         epoch = checkpoint['epoch']
         model = checkpoint['model']
         optimizer = checkpoint['optimizer']
@@ -45,6 +47,6 @@ def load_checkpoint(checkpoint_path):
             privacy_engine = checkpoint['privacy_engine']
         train_loader = checkpoint['train_loader']
     else:
-        print("No checkpoint found at {}".format(checkpoint_path))
+        raise FileExistsError("No checkpoint found at {}".format(checkpoint_path))
 
-    return run_id, run_results, epoch, model, optimizer, privacy_engine, train_loader
+    return run_id, run_results, one_run_result, epoch, model, optimizer, privacy_engine, train_loader

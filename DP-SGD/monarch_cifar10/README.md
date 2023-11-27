@@ -1,0 +1,1 @@
+[Monarch: Expressive Structured Matrices for Efficient and Accurate Training](https://arxiv.org/abs/2204.00595)

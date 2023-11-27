@@ -61,10 +61,9 @@ def priv_compatible(model):
     return model
 
 
-def train(args, model, device, train_loader, optimizer, privacy_engine) -> List:
+def train(args, step, model, device, train_loader, optimizer, privacy_engine) -> List:
     criterion = nn.CrossEntropyLoss()
     losses = []
-    step_inc = 0
     for _batch_idx, (data, target) in enumerate(tqdm(train_loader)):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
@@ -73,15 +72,15 @@ def train(args, model, device, train_loader, optimizer, privacy_engine) -> List:
         loss.backward()
         optimizer.step()
         losses.append(loss.item())
-        step_inc += 1
-        if step_inc >= args.max_steps:
+        step += 1
+        if step >= args.max_steps or step % args.save_freq == 0:
             break
 
     if not args.disable_dp:
         epsilon = privacy_engine.accountant.get_epsilon(delta=args.delta)
-        return [np.mean(losses), epsilon], step_inc
+        return [np.mean(losses), epsilon], step
     else:
-        return [np.mean(losses)], step_inc
+        return [np.mean(losses)], step
 
 
 def test(model, device, valid_loader):
@@ -112,35 +111,31 @@ def test(model, device, valid_loader):
         return test_loss, correct / len(valid_loader.dataset)
 
 
-def run(args, save_timer, run_id, run_results, step, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader):
+def run(args, run_id, run_results, one_run_result, step, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader):
     # Move the model to appropriate device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     p_model =p_model.to(device)
 
-    one_run_result = []
     while step < args.max_steps:
-        train_stat, step_inc = train(args, p_model, device, p_train_loader, p_optimizer, privacy_engine)
-        step += step_inc
+        train_stat, step = train(args, step, p_model, device, p_train_loader, p_optimizer, privacy_engine)
         test_loss, test_acc = test(p_model, device, test_loader)
         one_run_result += [train_stat, test_loss, test_acc]
-        save_timer += 1
-        if save_timer % args.save_freq == 0:
-            utils.save(state_path, run_id, run_results, step, p_model, p_optimizer, privacy_engine, p_train_loader)
+        utils.save(state_path, run_id, run_results, one_run_result, step, p_model, p_optimizer, privacy_engine, p_train_loader)
     run_results.append(one_run_result)
     with open(os.path.join(state_path, 'run_results.pkl'), 'wb') as file:
         pickle.dump(run_results, file)
-    return save_timer, run_results
+    return run_results
 
 
 def run_all(args, state_path, model, train_loader, test_loader):
-    save_timer = 0
 
     if args.resume:
-        run_id, run_results, step, p_model, p_optimizer, privacy_engine, p_train_loader = utils.load_checkpoint(os.path.join(state_path, "checkpoint.pth.tar"))
+        run_id, run_results, one_run_result, step, p_model, p_optimizer, privacy_engine, p_train_loader = utils.load_checkpoint(os.path.join(state_path, "checkpoint.pth.tar"))
 
     else:
         run_id = 0
         run_results = []
+        one_run_result = []
         step = 0
         # Set random seed
         random.seed(run_id)
@@ -162,7 +157,7 @@ def run_all(args, state_path, model, train_loader, test_loader):
             p_model, p_optimizer, p_train_loader = model, optimizer, train_loader
 
     while run_id < args.n_runs:
-        save_timer, run_results = run(args, save_timer, run_id, run_results, step, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader)
+        run_results = run(args, run_id, run_results, one_run_result, step, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader)
 
         # Prepare for the next iteration
         run_id += 1
