@@ -1,3 +1,4 @@
+# Refer to https://www.kaggle.com/code/paulojunqueira/mnist-with-pytorch-and-transfer-learning-timm
 import os
 import pickle
 import random
@@ -9,6 +10,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import timm
 import torchvision
 from torchinfo import summary
 from opacus import PrivacyEngine
@@ -22,12 +24,14 @@ def get_args():
     parser.add_argument('--name', type=str, default=datetime.datetime.now().strftime('%B%d_%H:%M'))
     parser.add_argument('--ft_type', type=str, choices=['lp', 'ft'])
     parser.add_argument('--n_runs', type=int, default=1)
-    parser.add_argument('--max_epochs', type=int, default=200)
+    parser.add_argument('--save_freq', type=int, default=100)
+    parser.add_argument('--max_steps', type=int, default=200)
     parser.add_argument('--sigma', type=float, required=True)
     # Delta: The target δ of the (ϵ,δ)-differential privacy guarantee.
     # Generally, it should be set to be less than the inverse of the size of the training dataset.
     # We set it to $10^{−5}$ as the CIFAR10 dataset has 50,000 training points.
     parser.add_argument('--delta', type=float, default=1e-5)
+    parser.add_argument('--max_per_sample_grad_norm', type=float, default=1.0)
     parser.add_argument('--model', type=str, choices=['resnet18', 'resnet34', 'resnet50'])
     parser.add_argument('--disable_dp', action='store_true')
     parser.add_argument(
@@ -49,7 +53,7 @@ def get_args():
 
 
 def priv_compatible(model):
-    summary(model, input_size=(1, 3, 96, 96), dtypes=['torch.FloatTensor'])
+    summary(model, input_size=(1, 1, 96, 96), dtypes=['torch.FloatTensor'])
     # Check if the model is compatible with the privacy engine
     model = ModuleValidator.fix(model)
     errors = ModuleValidator.validate(model, strict=False)
@@ -60,6 +64,7 @@ def priv_compatible(model):
 def train(args, model, device, train_loader, optimizer, privacy_engine) -> List:
     criterion = nn.CrossEntropyLoss()
     losses = []
+    step_inc = 0
     for _batch_idx, (data, target) in enumerate(tqdm(train_loader)):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
@@ -68,12 +73,15 @@ def train(args, model, device, train_loader, optimizer, privacy_engine) -> List:
         loss.backward()
         optimizer.step()
         losses.append(loss.item())
+        step_inc += 1
+        if step_inc >= args.max_steps:
+            break
 
     if not args.disable_dp:
         epsilon = privacy_engine.accountant.get_epsilon(delta=args.delta)
-        return [np.mean(losses), epsilon]
+        return [np.mean(losses), epsilon], step_inc
     else:
-        return [np.mean(losses)]
+        return [np.mean(losses)], step_inc
 
 
 def test(model, device, valid_loader):
@@ -104,20 +112,20 @@ def test(model, device, valid_loader):
         return test_loss, correct / len(valid_loader.dataset)
 
 
-def run(save_timer, run_id, run_results, epoch, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader):
+def run(args, save_timer, run_id, run_results, step, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader):
     # Move the model to appropriate device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     p_model =p_model.to(device)
 
     one_run_result = []
-    while epoch < args.max_epochs:
-        train_stat = train(args, p_model, device, p_train_loader, p_optimizer, privacy_engine)
+    while step < args.max_steps:
+        train_stat, step_inc = train(args, p_model, device, p_train_loader, p_optimizer, privacy_engine)
+        step += step_inc
         test_loss, test_acc = test(p_model, device, test_loader)
         one_run_result += [train_stat, test_loss, test_acc]
         save_timer += 1
-        if save_timer % 100 == 0:
-            utils.save(state_path, run_id, run_results, epoch, p_model, p_optimizer, privacy_engine, p_train_loader)
-        epoch += 1
+        if save_timer % args.save_freq == 0:
+            utils.save(state_path, run_id, run_results, step, p_model, p_optimizer, privacy_engine, p_train_loader)
     run_results.append(one_run_result)
     with open(os.path.join(state_path, 'run_results.pkl'), 'wb') as file:
         pickle.dump(run_results, file)
@@ -128,12 +136,12 @@ def run_all(args, state_path, model, train_loader, test_loader):
     save_timer = 0
 
     if args.resume:
-        run_id, run_results, epoch, p_model, p_optimizer, privacy_engine, p_train_loader = utils.load_checkpoint(os.path.join(state_path, "checkpoint.pth.tar"))
+        run_id, run_results, step, p_model, p_optimizer, privacy_engine, p_train_loader = utils.load_checkpoint(os.path.join(state_path, "checkpoint.pth.tar"))
 
     else:
         run_id = 0
         run_results = []
-        epoch = 0
+        step = 0
         # Set random seed
         random.seed(run_id)
         np.random.seed(run_id)
@@ -154,11 +162,11 @@ def run_all(args, state_path, model, train_loader, test_loader):
             p_model, p_optimizer, p_train_loader = model, optimizer, train_loader
 
     while run_id < args.n_runs:
-        save_timer, run_results = run(save_timer, run_id, run_results, epoch, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader)
+        save_timer, run_results = run(args, save_timer, run_id, run_results, step, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader)
 
         # Prepare for the next iteration
         run_id += 1
-        epoch = 0
+        step = 0
         # Set random seed
         random.seed(run_id)
         np.random.seed(run_id)
@@ -191,11 +199,11 @@ if __name__ == '__main__':
 
     # Initialize model
     if args.model == 'resnet18':
-        model = torchvision.models.resnet18(weights='ResNet18_Weights.IMAGENET1K_V1')
+        model = timm.create_model('resnet18', pretrained=True, in_chans=1)
     elif args.model == 'resnet34':
-        model = torchvision.models.resnet34(weights='ResNet34_Weights.IMAGENET1K_V1')
+        model = timm.create_model('resnet34', pretrained=True, in_chans=1)
     elif args.model == 'resnet50':
-        model = torchvision.models.resnet50(weights='ResNet50_Weights.IMAGENET1K_V1')
+        model = timm.create_model('resnet50', pretrained=True, in_chans=1)
     else:
         raise NotImplementedError
     
