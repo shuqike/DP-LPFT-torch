@@ -165,10 +165,6 @@ def run(args, run_id, run_results, one_run_result, step, sampler, p_model, p_opt
 
     while step < args.max_steps:
         train_stat, step = train(args, step, p_model, device, p_train_loader, p_optimizer, privacy_engine)
-        print(
-            'model_info',
-            list(p_model._module.fc.parameters())
-        )
         test_loss, test_acc = test(p_model, device, test_loader)
         one_run_result += [train_stat, test_loss, test_acc]
         utils.save(state_path, run_id, run_results, one_run_result, step, sampler, p_model, p_optimizer, privacy_engine)
@@ -214,10 +210,6 @@ if __name__ == '__main__':
             path=os.path.join(state_path, "priv_checkpoint.pth.tar"),
             module=p_model,
             optimizer=p_optimizer
-        )
-        print(
-            'resume_model_info',
-            list(p_model._module.fc.parameters())
         )
 
     else:
