@@ -1,2 +1,2 @@
-python singlephase.py --name testlp --ft_type lp --seed 0 --save_freq 100 --max_steps 1000 --sigma 10 --model resnet18 --lr 0.1 --momentum 0
-python singlephase.py --name testft --ft_type ft --seed 0 --save_freq 100 --max_steps 1000 --sigma 10 --model resnet18 --lr 0.01 --momentum 0
+python singlephase.py --name testlp --ft_type lp --seed 0 --save_freq 100 --max_steps 10000 --sigma 15 --model resnet18 --lr 0.1 --momentum 0
+python singlephase.py --name testft --ft_type ft --seed 0 --save_freq 100 --max_steps 10000 --sigma 15 --model resnet18 --lr 0.1 --momentum 0

@@ -11,7 +11,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import timm
-import torchvision
 from torchinfo import summary
 from opacus import PrivacyEngine
 from opacus.validators import ModuleValidator
@@ -95,12 +94,13 @@ def get_model(args):
 
     # Move the model to appropriate device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
     model = model.to(device)
     return model
 
 
 def priv_compatible(model):
-    summary(model, input_size=(1, 1, 96, 96), dtypes=['torch.FloatTensor'])
+    # summary(model, input_size=(1, 1, 96, 96), cuda=True)
     # Check if the model is compatible with the privacy engine
     model = ModuleValidator.fix(model)
     errors = ModuleValidator.validate(model, strict=False)
