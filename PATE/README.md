@@ -1,0 +1,1 @@
+Paper: [Semi-supervised Knowledge Transfer for Deep Learning from Private Training Data](https://arxiv.org/pdf/1610.05755.pdf)

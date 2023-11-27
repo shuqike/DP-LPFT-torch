@@ -14,7 +14,7 @@ from torchinfo import summary
 from opacus import PrivacyEngine
 from opacus.validators import ModuleValidator
 from get_data import get_dataloader
-import utils
+import singlephase_utils as utils
 
 
 def get_args():
@@ -220,11 +220,12 @@ if __name__ == '__main__':
             p.requires_grad = True
         # Sanity check of model setting
         model = priv_compatible(model)
-        # Move the model to appropriate device
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = model.to(device)
 
     else:
         raise NotImplementedError
+
+    # Move the model to appropriate device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
 
     run_all(args, state_path, model, train_loader, test_loader)
