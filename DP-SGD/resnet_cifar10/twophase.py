@@ -288,26 +288,25 @@ def main():  ## for non poisson, divide bs by world size
     setup_seed(args.experiment)
     init_distributed_mode(args)
     logger = initialize_exp(args)
-    model = WideResNet(args.WRN_depth,10,args.WRN_k,args.nb_groups,args.init,args.order1,args.order2)
-    if args.load_pretrained:
-        encoder_checkpoint = os.path.join(args.pretrained_path, 'stylegan-oriented', f'wrn{args.WRN_depth}{args.WRN_k}', 'encoder.pth')
-        print(f"Loading from: {encoder_checkpoint}")
-        ckpt = torch.load(encoder_checkpoint, map_location='cpu')
+    if args.model == 'resnet18':
+        model = torchvision.models.resnet18(pretrained=True)
+    elif args.model == 'resnet34':
+        model = torchvision.models.resnet34(pretrained=True)
+    elif args.model == 'resnet50':
+        model = torchvision.models.resnet50(pretrained=True)
+    else:
+        raise NotImplementedError
+    
+    # Resize and reinitialize the linear head
+    model.fc = torch.nn.Linear(model.fc.weight.shape[1], 10)
 
-        msg = model.load_state_dict(ckpt, strict=False)
-        print("Missing keys", msg.missing_keys)
-
-        total_params = 0
-        trainable_params = 0
-        for (k,v) in model.named_parameters():
-            total_params += v.numel()
-            if k in msg.missing_keys:
-                v.requires_grad = True
-                trainable_params += v.numel()
-            else:
-                v.requires_grad = False
-        print(f"Total parameters {total_params}. Trainable parameters {trainable_params}.")
-                
+    # linear probing preparation
+    print('Start linear probing...')
+    model = model.train()
+    for p in model.parameters():
+        p.requires_grad = False
+    for p in model.fc.parameters():
+        p.requires_grad = True
         
     model.cuda()
     print_params(model)
@@ -373,7 +372,6 @@ def main():  ## for non poisson, divide bs by world size
     for (n, p) in model.named_parameters():
         name_list.append(n)
     print(name_list)
-    #print(model.keys())
     ## Changes the grad samplers to work with augmentation multiplicity
     prepare_augmult_cifar(model,args.transform)
     ema = None
@@ -484,8 +482,7 @@ def parse_args():
 
     parser.add_argument("--batch_size",default=4096,type=int,help="Batch size for simulated training. It will automatically set the noise $\sigma$ s.t. $B/\sigma = B_{ref}/sigma_{ref}$")
     parser.add_argument("--max_physical_batch_size",default=512,type=int,help="max_physical_batch_size for BatchMemoryManager",)
-    parser.add_argument("--WRN_depth",default=16,type=int)
-    parser.add_argument("--WRN_k",default=4,type=int,help="k of resnet block",)
+    parser.add_argument("--resnet_type", required=True, choices=['resnet18', 'resnet34', 'resnet50'])
 
     parser.add_argument("--lr","--learning_rate",default=0.5,type=float,metavar="LR",help="initial learning rate",dest="lr",)
 
@@ -525,11 +522,6 @@ def parse_args():
     parser.add_argument("--master_port", type=int, default=-1)
     parser.add_argument("--debug_slurm", type=bool_flag, default=False)
     
-    parser.add_argument(
-        "--load_pretrained",
-        action="store_true",
-        help="augmentation factor",
-    )
     parser.add_argument(
         "--pretrained_path",
         type=str,

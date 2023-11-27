@@ -119,7 +119,7 @@ def run(save_timer, run_id, run_results, epoch, p_model, p_optimizer, p_train_lo
             utils.save(state_path, run_id, run_results, epoch, p_model, p_optimizer, privacy_engine, p_train_loader)
         epoch += 1
     run_results.append(one_run_result)
-    with open(os.path.join(state_path, 'run_results.pkl'), 'w') as file:
+    with open(os.path.join(state_path, 'run_results.pkl'), 'wb') as file:
         pickle.dump(run_results, file)
     return save_timer, run_results
 
@@ -184,18 +184,18 @@ if __name__ == '__main__':
     state_path = os.path.join('temp/', args.name)
     os.makedirs(state_path, exist_ok=True)
     # Save the arguments for this experiment
-    with open(os.path.join(state_path, 'args.pkl'), 'w') as file:
+    with open(os.path.join(state_path, 'args.pkl'), 'wb') as file:
         pickle.dump(args, file)
 
     train_loader, test_loader = get_dataloader(args.batch_size)
 
     # Initialize model
     if args.model == 'resnet18':
-        model = torchvision.models.resnet18(pretrained=True)
+        model = torchvision.models.resnet18(weights='ResNet18_Weights.IMAGENET1K_V1')
     elif args.model == 'resnet34':
-        model = torchvision.models.resnet34(pretrained=True)
+        model = torchvision.models.resnet34(weights='ResNet34_Weights.IMAGENET1K_V1')
     elif args.model == 'resnet50':
-        model = torchvision.models.resnet50(pretrained=True)
+        model = torchvision.models.resnet50(weights='ResNet50_Weights.IMAGENET1K_V1')
     else:
         raise NotImplementedError
     
