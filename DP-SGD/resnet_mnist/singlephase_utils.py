@@ -4,20 +4,22 @@ import numpy as np
 import torch
 
 
-def save(state_path, run_id, run_results, one_run_result, epoch, model, optimizer, privacy_engine, train_loader):
+def save(state_path, run_id, run_results, one_run_result, epoch, state_dict):
     '''
     A checkpoint typically includes not just the model's state_dict (which contains the model's parameters), but also other elements of the training state, like the optimizer state, the epoch number, and potentially the state of the learning rate scheduler if you are using one.
     '''
+    epoch += 1
     save_checkpoint(
         state={
             'run_id': run_id,
             'run_results': run_results,
             'one_run_result': one_run_result,
-            'epoch': epoch + 1,
-            'model': model,
-            'optimizer': optimizer,
-            'privacy_engine': privacy_engine,
-            'train_loader': train_loader
+            'epoch': epoch,
+            'state_dict': state_dict,
+            'python_random_state': random.getstate(),
+            'numpy_rng_state': np.random.get_state(),
+            'torch_rng_state': torch.random.get_rng_state(),
+            'cuda_rng_state': torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
         },
         state_path=state_path
     )
@@ -31,9 +33,11 @@ def load_checkpoint(checkpoint_path):
     if os.path.isfile(checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
         # resume random generator states
-        random.setstate(checkpoint['random_state'])
-        np.random.set_state(checkpoint['np_random_state'])
-        torch.random.set_rng_state(checkpoint['torch_random_state'])
+        random.setstate(checkpoint['python_random_state'])
+        np.random.set_state(checkpoint['numpy_rng_state'])
+        torch.random.set_rng_state(checkpoint['torch_rng_state'])
+        if checkpoint['cuda_rng_state'] is not None:
+            torch.cuda.set_rng_state_all(checkpoint['cuda_rng_state'])
         if 'cuda_random_state' in checkpoint and torch.cuda.is_available():
             torch.cuda.set_rng_state(checkpoint['cuda_random_state'])
         # resume training states
@@ -41,12 +45,8 @@ def load_checkpoint(checkpoint_path):
         run_results = checkpoint['run_results']
         one_run_result = checkpoint['one_run_result']
         epoch = checkpoint['epoch']
-        model = checkpoint['model']
-        optimizer = checkpoint['optimizer']
-        if 'privacy_engine' in checkpoint:
-            privacy_engine = checkpoint['privacy_engine']
-        train_loader = checkpoint['train_loader']
+        state_dict = checkpoint['state_dict']
     else:
         raise FileExistsError("No checkpoint found at {}".format(checkpoint_path))
 
-    return run_id, run_results, one_run_result, epoch, model, optimizer, privacy_engine, train_loader
+    return run_id, run_results, one_run_result, epoch, state_dict

@@ -1,6 +1,6 @@
 # Refer to https://www.kaggle.com/code/paulojunqueira/mnist-with-pytorch-and-transfer-learning-timm
 import os
-import pickle
+import dill as pickle
 import random
 import datetime
 import argparse
@@ -120,7 +120,7 @@ def run(args, run_id, run_results, one_run_result, step, p_model, p_optimizer, p
         train_stat, step = train(args, step, p_model, device, p_train_loader, p_optimizer, privacy_engine)
         test_loss, test_acc = test(p_model, device, test_loader)
         one_run_result += [train_stat, test_loss, test_acc]
-        utils.save(state_path, run_id, run_results, one_run_result, step, p_model, p_optimizer, privacy_engine, p_train_loader)
+        utils.save(state_path, run_id, run_results, one_run_result, step, p_model.state_dict())
     run_results.append(one_run_result)
     with open(os.path.join(state_path, 'run_results.pkl'), 'wb') as file:
         pickle.dump(run_results, file)
@@ -130,7 +130,8 @@ def run(args, run_id, run_results, one_run_result, step, p_model, p_optimizer, p
 def run_all(args, state_path, model, train_loader, test_loader):
 
     if args.resume:
-        run_id, run_results, one_run_result, step, p_model, p_optimizer, privacy_engine, p_train_loader = utils.load_checkpoint(os.path.join(state_path, "checkpoint.pth.tar"))
+        run_id, run_results, one_run_result, step, state_dict = utils.load_checkpoint(os.path.join(state_path, "checkpoint.pth.tar"))
+        model.load_state_dict(state_dict)
 
     else:
         run_id = 0
@@ -143,18 +144,18 @@ def run_all(args, state_path, model, train_loader, test_loader):
         torch.manual_seed(run_id)
         optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
         
-        privacy_engine = None
-        if not args.disable_dp:
-            privacy_engine = PrivacyEngine()
-            p_model, p_optimizer, p_train_loader = privacy_engine.make_private(
-                module=model,
-                optimizer=optimizer,
-                data_loader=train_loader,
-                noise_multiplier=args.sigma,
-                max_grad_norm=args.max_per_sample_grad_norm,
-            )
-        else:
-            p_model, p_optimizer, p_train_loader = model, optimizer, train_loader
+    privacy_engine = None
+    if not args.disable_dp:
+        privacy_engine = PrivacyEngine()
+        p_model, p_optimizer, p_train_loader = privacy_engine.make_private(
+            module=model,
+            optimizer=optimizer,
+            data_loader=train_loader,
+            noise_multiplier=args.sigma,
+            max_grad_norm=args.max_per_sample_grad_norm,
+        )
+    else:
+        p_model, p_optimizer, p_train_loader = model, optimizer, train_loader
 
     while run_id < args.n_runs:
         run_results = run(args, run_id, run_results, one_run_result, step, p_model, p_optimizer, p_train_loader, privacy_engine, test_loader)
