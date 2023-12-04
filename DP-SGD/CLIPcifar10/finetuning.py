@@ -27,6 +27,8 @@ test_dataset = CIFAR10(root='./data', train=False, download=True, transform=tran
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 model = ResNet50CIFAR10()
+if args.multi_gpu:
+    model= nn.DataParallel(model)
 model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9,0.98), eps=1e-6, weight_decay=0.2)
 privacy_engine = PrivacyEngine(
