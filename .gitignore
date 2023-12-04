@@ -7,3 +7,5 @@ DP-SGD/.DS_Store
 .DS_Store
 DP-SGD/CLIPcifar10/.tmp.driveupload/*
 DP-SGD/CLIPcifar10/.tmp.drivedownload/*
+DP-SGD/CLIPcifar10/data/*
+DP-SGD/CLIPcifar10/__pycache__/*

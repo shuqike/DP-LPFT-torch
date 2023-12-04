@@ -12,6 +12,8 @@ from imnet_resnet import ResNet50CIFAR10
 from utils import get_args
 
 
+device = "cuda" if torch.cuda.is_available() else \
+         ("mps" if torch.backends.mps.is_available() else "cpu")
 args = get_args()
 transform = transforms.Compose( # refer to tan/config/dataset_cifar.yml, tailored for moco(v2-3)+resnet50
         [
@@ -25,6 +27,7 @@ test_dataset = CIFAR10(root='./data', train=False, download=True, transform=tran
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 model = ResNet50CIFAR10()
+model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9,0.98), eps=1e-6, weight_decay=0.2)
 privacy_engine = PrivacyEngine(
     model,
