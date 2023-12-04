@@ -5,3 +5,5 @@ DP-SGD/resnet_mnist/data/*
 DP-SGD/resnet_mnist/temp/*
 DP-SGD/.DS_Store
 .DS_Store
+DP-SGD/CLIPcifar10/.tmp.driveupload/*
+DP-SGD/CLIPcifar10/.tmp.drivedownload/*
