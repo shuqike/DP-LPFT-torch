@@ -43,7 +43,7 @@ privacy_engine = PrivacyEngine(
     model,
     batch_size=args.batch_size,
     sample_size=50000, # size of CIFAR10 training set
-    epochs=args.epochs,
+    epochs=args.epoch,
     target_epsilon=args.epsilon,
     clipping_fn='automatic',
     clipping_mode='MixOpt',
