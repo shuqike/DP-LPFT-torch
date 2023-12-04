@@ -41,6 +41,8 @@ for (k,v) in model._model.fc.named_parameters():
     v.requires_grad = True
 print(f"Total parameters {total_params}. Trainable parameters {trainable_params}.")
 optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
+if args.gamma != -1:
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=args.gamma)
 privacy_engine = PrivacyEngine(
     model,
     batch_size=args.batch_size,
@@ -66,6 +68,8 @@ for epoch in range(args.epoch):
         if i % 2000 == 1999:
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
             running_loss = 0.0
+    if args.gamma != -1:
+        scheduler.step()
     # Test
     correct = 0
     total = 0

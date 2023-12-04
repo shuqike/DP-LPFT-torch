@@ -32,6 +32,8 @@ def get_args():
     # refer to https://github.com/zhreshold/mxnet/blob/2fbfdbcbacff8b738bd9f44e9c8cefc84d6dfbb5/example/gluon/train_imagenet.py
     parser.add_argument('--lr', '--learning-rate', default=5e-5, type=float,
                         help='initial learning rate')
+    parser.add_argument('--gamma', '--g', default=-1, type=float,
+                        help='exponential decay of learning rate')
     parser.add_argument('--multi-gpu', action='store_true')
     args = parser.parse_args()
     return args

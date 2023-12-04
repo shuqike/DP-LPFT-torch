@@ -30,7 +30,8 @@ model = ResNet50CIFAR10()
 if args.multi_gpu:
     model= nn.DataParallel(model)
 model = model.to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9,0.98), eps=1e-6, weight_decay=0.2)
+# optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9,0.98), eps=1e-6, weight_decay=0.2)
+optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
 privacy_engine = PrivacyEngine(
     model,
     batch_size=args.batch_size,
