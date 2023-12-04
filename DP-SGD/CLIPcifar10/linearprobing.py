@@ -56,7 +56,7 @@ criterion = nn.CrossEntropyLoss()
 for epoch in range(args.epoch):
     running_loss = 0.0
     for i, batch in enumerate(train_loader, 0):
-        imgs, labels = batch
+        imgs, labels = batch[0].to(device), batch[1].to(device)
         optimizer.zero_grad()
         loss = criterion(model(imgs), labels)
         loss.backward()
@@ -70,7 +70,7 @@ for epoch in range(args.epoch):
     # since we're not training, we don't need to calculate the gradients for our outputs
     with torch.no_grad():
         for batch in test_loader:
-            imgs, labels = batch
+            imgs, labels = batch[0].to(device), batch[1].to(device)
             # calculate outputs by running images through the network
             outputs = model(imgs)
             # the class with the highest energy is what we choose as prediction
