@@ -40,7 +40,7 @@ for (k,v) in model._model.fc.named_parameters():
     trainable_params += v.numel()
     v.requires_grad = True
 print(f"Total parameters {total_params}. Trainable parameters {trainable_params}.")
-optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9,0.98), eps=1e-6, weight_decay=0.2)
+optimizer = torch.optim.SGD(model.parameters(), lr=args.lr)
 privacy_engine = PrivacyEngine(
     model,
     batch_size=args.batch_size,
