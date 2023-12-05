@@ -20,7 +20,7 @@ def get_args():
     parser.add_argument('--name', type=str, default=datetime.datetime.now().strftime('%B%d_%H:%M'))
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--epoch', type=int, default=200)
-    parser.add_argument('--epsilon', type=float, default=1e-5)
+    parser.add_argument('--noise-multiplier', type=float, default=1)
     parser.add_argument(
         "-b",
         "--batch-size",
@@ -44,27 +44,20 @@ def get_2phase_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, default=datetime.datetime.now().strftime('%B%d_%H:%M'))
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--epoch', type=int, default=200)
-    parser.add_argument('--epsilon', type=float, default=1e-5)
-    parser.add_argument('--eps-frac', type=float, default=0.5)
+    parser.add_argument('--epoch', type=int, default=20)
+    parser.add_argument('--noise-multiplier', type=float, default=1)
+    parser.add_argument('--lp-epoch', type=float, default=10)
     parser.add_argument(
-        "--lpbs",
+        "-b",
+        "--batch-size",
         type=int,
-        default=810,
-        help="lp batch size",
-    )
-    parser.add_argument(
-        "--ftbs",
-        type=int,
-        default=100,
-        help="lp batch size",
+        default=64,
+        metavar="B",
+        help="Batch size",
     )
     parser.add_argument('--lplr', default=5e-5, type=float, help='initial linear probing learning rate')
     parser.add_argument('--ftlr', default=5e-5, type=float, help='initial finetuning learning rate')
-    parser.add_argument('--lpgamma', default=-1, type=float,
-                        help='exponential decay of lp learning rate')
-    parser.add_argument('--ftgamma', default=-1, type=float,
-                        help='exponential decay of ft learning rate')
     parser.add_argument('--multi-gpu', action='store_true')
+    parser.add_argument('--save-weights', action='store_true')
     args = parser.parse_args()
     return args

@@ -42,7 +42,7 @@ privacy_engine = PrivacyEngine(
     batch_size=args.batch_size,
     sample_size=50000, # size of CIFAR10 training set
     epochs=args.epoch,
-    target_epsilon=args.epsilon,
+    noise_multiplier=args.noise_multiplier,
     clipping_fn='automatic',
     clipping_mode='MixOpt',
     origin_params=None,
@@ -53,16 +53,12 @@ privacy_engine.attach(optimizer)
 criterion = nn.CrossEntropyLoss()
 
 for epoch in range(args.epoch):
-    running_loss = 0.0
     for i, batch in enumerate(train_loader, 0):
         imgs, labels = batch[0].to(device), batch[1].to(device)
         optimizer.zero_grad()
         loss = criterion(model(imgs), labels)
         loss.backward()
         optimizer.step()
-        if i % 200 == 199:
-            print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
-            running_loss = 0.0
     if args.gamma != -1:
         scheduler.step()
     # Test
@@ -86,4 +82,4 @@ for epoch in range(args.epoch):
                     'privacy_spent': privacy_engine.get_privacy_spent(),
                     'test_acc': 100 * correct // total,
                     },
-                   f'temp/ft/s{args.seed}ech{epoch}eps{args.epsilon}b{args.batch_size}lr{args.lr}g{args.gamma}.pt')
+                   f'temp/ft/s{args.seed}ech{epoch}eps{args.noise_multiplier}b{args.batch_size}lr{args.lr}g{args.gamma}.pt')
