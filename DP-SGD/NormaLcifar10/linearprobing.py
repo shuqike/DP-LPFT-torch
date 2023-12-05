@@ -2,6 +2,7 @@
 https://github.com/openai/CLIP
 https://github.com/awslabs/fast-differential-privacy/tree/main
 '''
+import os
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -12,6 +13,8 @@ from fastDP import PrivacyEngine
 from utils import get_args
 
 
+os.makedirs('./temp', exist_ok=True)
+os.makedirs('./temp/lp', exist_ok=True)
 device = "cuda" if torch.cuda.is_available() else \
          ("mps" if torch.backends.mps.is_available() else "cpu")
 args = get_args()
@@ -36,7 +39,7 @@ trainable_params = 0
 for (k,v) in model.named_parameters():
     total_params += v.numel()
     v.requires_grad = False
-for (k,v) in model._model.fc.named_parameters():
+for (k,v) in model.fc.named_parameters():
     trainable_params += v.numel()
     v.requires_grad = True
 print(f"Total parameters {total_params}. Trainable parameters {trainable_params}.")
@@ -54,6 +57,7 @@ privacy_engine = PrivacyEngine(
     origin_params=None,
     clipping_style='all-layer',
 )
+print('noise multiplier', privacy_engine.noise_multiplier)
 privacy_engine.attach(optimizer)
 criterion = nn.CrossEntropyLoss()
 
@@ -65,7 +69,7 @@ for epoch in range(args.epoch):
         loss = criterion(model(imgs), labels)
         loss.backward()
         optimizer.step()
-        if i % 2000 == 1999:
+        if i % 200 == 199:
             print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
             running_loss = 0.0
     if args.gamma != -1:
@@ -84,3 +88,11 @@ for epoch in range(args.epoch):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
     print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')
+    if args.save_weights:
+        torch.save({
+                    'args': args,
+                    'state_dict': model.state_dict(),
+                    'privacy_spent': privacy_engine.get_privacy_spent(),
+                    'test_acc': 100 * correct // total,
+                    },
+                   f'temp/lp/s{args.seed}ech{epoch}eps{args.epsilon}b{args.batch_size}lr{args.lr}g{args.gamma}.pt')

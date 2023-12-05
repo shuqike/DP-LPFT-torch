@@ -10,5 +10,7 @@ DP-SGD/CLIPcifar10/.tmp.drivedownload/*
 DP-SGD/CLIPcifar10/data/*
 DP-SGD/CLIPcifar10/checkpoint/*
 DP-SGD/CLIPcifar10/__pycache__/*
+DP-SGD/NormaLcifar10/temp/*
+DP-SGD/NormaLcifar10/data/*
 DP-SGD/NormaLcifar10/.tmp.driveupload/*
 DP-SGD/NormaLcifar10/.tmp.drivedownload/*

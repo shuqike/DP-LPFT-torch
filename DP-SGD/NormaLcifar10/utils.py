@@ -35,6 +35,7 @@ def get_args():
     parser.add_argument('--gamma', '--g', default=-1, type=float,
                         help='exponential decay of learning rate')
     parser.add_argument('--multi-gpu', action='store_true')
+    parser.add_argument('--save-weights', action='store_true')
     args = parser.parse_args()
     return args
 
