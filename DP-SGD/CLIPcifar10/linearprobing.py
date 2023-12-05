@@ -2,6 +2,7 @@
 https://github.com/openai/CLIP
 https://github.com/awslabs/fast-differential-privacy/tree/main
 '''
+import time
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -58,6 +59,7 @@ privacy_engine.attach(optimizer)
 criterion = nn.CrossEntropyLoss()
 
 for epoch in range(args.epoch):
+    start_time = time.time()
     running_loss = 0.0
     for i, batch in enumerate(train_loader, 0):
         imgs, labels = batch[0].to(device), batch[1].to(device)
@@ -83,4 +85,4 @@ for epoch in range(args.epoch):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-    print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')
+    print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %, time spent per epoch {time.time() - start_time}')
