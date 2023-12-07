@@ -11,6 +11,7 @@ from test.basics import debug_ResNet50, debug_unfreeze, debug_freeze, debug_img
 
 def linear_prob(args, model, train_loader, test_loader):
     freeze_bottom(model)
+    model.to(args.device)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lplr)
     privacy_engine = PrivacyEngine(
         model,
@@ -41,6 +42,7 @@ def linear_prob(args, model, train_loader, test_loader):
 
 def finetune(args, model, train_loader, test_loader):
     unfreeze_all(model)
+    model.to(args.device)
     optimizer = torch.optim.SGD(model.parameters(), lr=args.ftlr)
     privacy_engine = PrivacyEngine(
         model,
