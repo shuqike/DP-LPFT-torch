@@ -3,6 +3,7 @@ import datetime
 import random
 import numpy as np
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
@@ -82,18 +83,23 @@ def unfreeze_all(model):
         v.requires_grad = True
 
 
-def test(args, model, test_loader):
+def test_model(args, model, test_loader):
     # Test
+    tot_loss = 0
     correct = 0
     total = 0
+    criterion = nn.CrossEntropyLoss()
     # since we're not training, we don't need to calculate the gradients for our outputs
     with torch.no_grad():
         for batch in test_loader:
             imgs, labels = batch[0].to(args.device), batch[1].to(args.device)
             # calculate outputs by running images through the network
             outputs = model(imgs)
+            # loss calc
+            loss = criterion(model(imgs), labels)
+            tot_loss += loss.item()
             # the class with the highest energy is what we choose as prediction
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-    print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')
+    return 100 * correct / total, tot_loss
