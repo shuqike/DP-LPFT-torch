@@ -75,11 +75,16 @@ def run(args):
     model = ResNet50CIFAR10(args)
     args.log = {'test_acc': [], 'test_loss': []}
     start_time = time.time()
+
     linear_prob(args, model, train_loader, test_loader)
     finetune(args, model, train_loader, test_loader)
+
     args.time_spent = time.time() - start_time
-    with open('logs/' + args.name + '.pkl', 'wb') as file:
+    # save logs
+    with open(f'logs/{args.name}.pkl', 'wb') as file:
         pickle.dump(args, file)
+    # save model
+    torch.save(model.state_dict(), f'temp/{args.name}.pt')
 
 
 if __name__ == '__main__':
