@@ -80,6 +80,8 @@ def run(args):
     finetune(args, model, train_loader, test_loader)
 
     args.time_spent = time.time() - start_time
+    os.makedirs('./logs', exist_ok=True)
+    os.makedirs('./temp', exist_ok=True)
     # save logs
     with open(f'logs/{args.name}.pkl', 'wb') as file:
         pickle.dump(args, file)
