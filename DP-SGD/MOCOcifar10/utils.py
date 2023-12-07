@@ -13,13 +13,13 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, default=datetime.datetime.now().strftime('%B%d_%H:%M'))
     parser.add_argument('--device', type=str, default='')
-    parser.add_argument('--weights', type=str, default='models/checkpoint/mocov3-rn50-1000ep.pth.tar',
+    parser.add_argument('--weights', type=str, default='models/checkpoint/r-50-1000ep.pth.tar',
                         choices=[
-                            'models/checkpoint/mocov3-rn50-1000ep.pth.tar',
-                            'models/checkpoint/mocov3-rn50-300ep.pth.tar',
-                            'models/checkpoint/mocov3-rn50-100ep.pth.tar',
-                            'models/checkpoint/mocov2_rn50_200ep.pth.tar',
-                            'models/checkpoint/mocov2_rn50_800ep.pth.tar'
+                            'models/checkpoint/r-50-300ep.pth.tar',
+                            'models/checkpoint/r-50-100ep.pth.tar',
+                            'models/checkpoint/r-50-1000ep.pth.tar',
+                            'models/checkpoint/moco_v2_200ep_pretrain.pth.tar',
+                            'models/checkpoint/moco_v2_800ep_pretrain.pth.tar'
                         ]
     )
     parser.add_argument('--seed', type=int, default=0)
