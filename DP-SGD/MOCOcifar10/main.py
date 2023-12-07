@@ -4,6 +4,7 @@ import pickle
 import torch
 import torch.nn as nn
 from fastDP import PrivacyEngine
+from opacus.validators import ModuleValidator
 from models.imnet_resnet import ResNet50CIFAR10
 from utils import get_args, get_dataloaders, setup_seeds, freeze_bottom, unfreeze_all, test_model
 from test.basics import debug_ResNet50, debug_unfreeze, debug_freeze, debug_img
@@ -73,6 +74,7 @@ def run(args):
     setup_seeds(args)
     train_loader, test_loader = get_dataloaders(args)
     model = ResNet50CIFAR10(args)
+    model = ModuleValidator.fix(model)
     args.log = {'test_acc': [], 'test_loss': []}
     start_time = time.time()
 
