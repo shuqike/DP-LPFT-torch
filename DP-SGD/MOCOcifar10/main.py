@@ -15,7 +15,7 @@ def linear_prob(args, model, train_loader, test_loader):
     optimizer = torch.optim.SGD(model.parameters(), lr=args.lplr)
     privacy_engine = PrivacyEngine(
         model,
-        batch_size=args.batch_size,
+        batch_size=64,
         sample_size=50000, # size of CIFAR-10 training set
         epochs=args.lp_epoch,
         noise_multiplier=args.noise_multiplier,
@@ -31,9 +31,8 @@ def linear_prob(args, model, train_loader, test_loader):
             imgs, labels = batch[0].to(args.device), batch[1].to(args.device)
             loss = criterion(model(imgs), labels)
             loss.backward()
-            if (i+1) % (args.batch_size/64) == 0:
-                optimizer.step()
-                optimizer.zero_grad()
+            optimizer.step()
+            optimizer.zero_grad()
         test_acc, test_loss = test_model(args, model, test_loader)
         args.log['test_acc'].append(test_acc)
         args.log['test_loss'].append(test_loss)
@@ -46,7 +45,7 @@ def finetune(args, model, train_loader, test_loader):
     optimizer = torch.optim.SGD(model.parameters(), lr=args.ftlr)
     privacy_engine = PrivacyEngine(
         model,
-        batch_size=args.batch_size,
+        batch_size=64,
         sample_size=50000, # size of CIFAR-10 training set
         epochs=args.epoch-args.lp_epoch,
         noise_multiplier=args.noise_multiplier,
@@ -62,9 +61,8 @@ def finetune(args, model, train_loader, test_loader):
             imgs, labels = batch[0].to(args.device), batch[1].to(args.device)
             loss = criterion(model(imgs), labels)
             loss.backward()
-            if (i+1) % (args.batch_size/64) == 0:
-                optimizer.step()
-                optimizer.zero_grad()
+            optimizer.step()
+            optimizer.zero_grad()
         test_acc, test_loss = test_model(args, model, test_loader)
         args.log['test_acc'].append(test_acc)
         args.log['test_loss'].append(test_loss)

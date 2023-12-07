@@ -26,14 +26,6 @@ def get_args():
     parser.add_argument('--epoch', type=int, default=200)
     parser.add_argument('--lp-epoch', type=int, default=200)
     parser.add_argument('--noise-multiplier', type=float, default=1)
-    parser.add_argument(
-        "-b",
-        "--batch-size",
-        type=int,
-        default=64,
-        metavar="B",
-        help="Batch size",
-    )
     parser.add_argument('--lplr', default=5e-5, type=float)
     parser.add_argument('--ftlr', default=5e-5, type=float)
     parser.add_argument('--debug', action='store_true')
