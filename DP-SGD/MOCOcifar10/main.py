@@ -36,7 +36,7 @@ def linear_prob(args, model, train_loader, test_loader):
         test_acc, test_loss = test_model(args, model, test_loader)
         args.log['test_acc'].append(test_acc)
         args.log['test_loss'].append(test_loss)
-    privacy_engine.detach(optimizer)
+    privacy_engine.detach()
 
 
 def finetune(args, model, train_loader, test_loader):
@@ -66,7 +66,7 @@ def finetune(args, model, train_loader, test_loader):
         test_acc, test_loss = test_model(args, model, test_loader)
         args.log['test_acc'].append(test_acc)
         args.log['test_loss'].append(test_loss)
-    privacy_engine.detach(optimizer)
+    privacy_engine.detach()
 
 
 def run(args):
