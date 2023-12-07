@@ -7,6 +7,8 @@ DP-SGD/.DS_Store
 .DS_Store
 DP-SGD/MOCOcifar10(old)/.tmp.driveupload/*
 DP-SGD/MOCOcifar10(old)/.tmp.drivedownload/*
+DP-SGD/MOCOcifar10/.tmp.driveupload/*
+DP-SGD/MOCOcifar10/.tmp.drivedownload/*
 DP-SGD/MOCOcifar10(old)/data/*
 DP-SGD/MOCOcifar10(old)/checkpoint/*
 DP-SGD/MOCOcifar10(old)/__pycache__/*
