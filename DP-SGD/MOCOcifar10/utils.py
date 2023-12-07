@@ -30,7 +30,7 @@ def get_args():
         "-b",
         "--batch-size",
         type=int,
-        default=4096,
+        default=64,
         metavar="B",
         help="Batch size",
     )
