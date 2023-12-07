@@ -11,8 +11,9 @@ DP-SGD/MOCOcifar10(old)/data/*
 DP-SGD/MOCOcifar10(old)/checkpoint/*
 DP-SGD/MOCOcifar10(old)/__pycache__/*
 DP-SGD/MOCOcifar10/data/*
-DP-SGD/MOCOcifar10/checkpoint/*
+DP-SGD/MOCOcifar10/models/checkpoint/*
 DP-SGD/MOCOcifar10/__pycache__/*
+DP-SGD/MOCOcifar10/models/__pycache__/*
 DP-SGD/NormaLcifar10/temp/*
 DP-SGD/NormaLcifar10/data/*
 DP-SGD/NormaLcifar10/.tmp.driveupload/*

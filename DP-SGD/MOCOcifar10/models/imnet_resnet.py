@@ -4,9 +4,9 @@ import torchvision.models as models
 from torchvision.models import resnet50
 import torch
 from torch import nn
-import model_utils
+import models.model_utils as model_utils
 from torchvision.transforms import Normalize
-import swav_resnet50
+import models.swav_resnet50 as swav_resnet50
 
 
 PRETRAIN_STYLE = ['supervised', 'mocov2', 'swav', 'simclrv2']
@@ -21,11 +21,12 @@ def load_moco(checkpoint_path):
     model = models.__dict__[checkpoint['arch']]()
 
     state_dict = checkpoint['state_dict']
+    prefix = 'encoder_q' if 'mocov2' in checkpoint_path else 'base_encoder'
     for k in list(state_dict.keys()):
         # retain only encoder_q up to before the embedding layer
-        if k.startswith('module.encoder_q') and not k.startswith('module.encoder_q.fc'):
+        if k.startswith('module.'+prefix) and not k.startswith('module.'+prefix+'.fc'):
             # remove prefix
-            state_dict[k[len("module.encoder_q."):]] = state_dict[k]
+            state_dict[k[len("module."+prefix+"."):]] = state_dict[k]
         # delete renamed or unused k
         del state_dict[k]
     msg = model.load_state_dict(state_dict, strict=False)
@@ -55,7 +56,7 @@ def load_swav(checkpoint_path):
 
 class ResNet50(nn.Module):
 
-    def __init__(self, checkpoint_path='checkpoint/mocov2_rn50_800ep.pth.tar', normalize=False):
+    def __init__(self, checkpoint_path, normalize=False):
         super().__init__()
         # if pretrained and pretrain_style == 'mocov2':
             # self._model = load_moco(checkpoint_path)
@@ -128,8 +129,13 @@ class ResNet50(nn.Module):
         return torch.reshape(features, (features.shape[0], -1))
 
 
-def ResNet50CIFAR10():
-    model = ResNet50()
+def ResNet50CIFAR10(args):
+    model = ResNet50(args.weights)
     # Replace linear head
     model._model.fc = nn.Linear(in_features=2048, out_features=10, bias=True)
     return model
+
+
+def debug_ResNet50(args):
+    model = ResNet50(args.weights)
+    print(model)
