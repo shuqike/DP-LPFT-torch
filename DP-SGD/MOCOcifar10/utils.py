@@ -6,7 +6,6 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
-import torchinfo
 
 
 def get_args():
@@ -30,12 +29,12 @@ def get_args():
         "-b",
         "--batch-size",
         type=int,
-        default=64,
+        default=4096,
         metavar="B",
         help="Batch size",
     )
-    parser.add_argument('--lr', '--learning-rate', default=5e-5, type=float,
-                        help='learning rate')
+    parser.add_argument('--lplr', default=5e-5, type=float)
+    parser.add_argument('--ftlr', default=5e-5, type=float)
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
     if args.device == '':
@@ -54,8 +53,8 @@ def get_dataloaders(args):
     )
     train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
     test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
     return train_loader, test_loader
 
 
@@ -78,18 +77,23 @@ def freeze_bottom(model):
     print(f"Total parameters {total_params}. Trainable parameters {trainable_params}.")
 
 
-def debug_img():
-    transform = transforms.Compose( # refer to tan/config/dataset_cifar.yml, tailored for moco(v2-3)+resnet50
-        [
-            transforms.Resize(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.228, 0.224, 0.225]),
-        ]
-    )
-    train_dataset = CIFAR10(root='./data', train=True, download=True, transform=transform)
-    test_dataset = CIFAR10(root='./data', train=False, download=True, transform=transform)
-    print(train_dataset)
+def unfreeze_all(model):
+    for (k,v) in model.named_parameters():
+        v.requires_grad = True
 
 
-def debug_freeze(model):
-    torchinfo.summary(model=model, input_size=(1, 3, 224))
+def test(args, model, test_loader):
+    # Test
+    correct = 0
+    total = 0
+    # since we're not training, we don't need to calculate the gradients for our outputs
+    with torch.no_grad():
+        for batch in test_loader:
+            imgs, labels = batch[0].to(args.device), batch[1].to(args.device)
+            # calculate outputs by running images through the network
+            outputs = model(imgs)
+            # the class with the highest energy is what we choose as prediction
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')

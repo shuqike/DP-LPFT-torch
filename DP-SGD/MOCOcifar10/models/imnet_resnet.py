@@ -134,8 +134,3 @@ def ResNet50CIFAR10(args):
     # Replace linear head
     model._model.fc = nn.Linear(in_features=2048, out_features=10, bias=True)
     return model
-
-
-def debug_ResNet50(args):
-    model = ResNet50(args.weights)
-    print(model)
