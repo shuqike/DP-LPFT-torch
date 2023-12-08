@@ -57,6 +57,8 @@ def finetune(args, model, train_loader, test_loader):
         clipping_style='all-layer',
     )
     privacy_engine.attach(optimizer)
+    if args.scheduler:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epoch - args.lp_epoch)
     criterion = nn.CrossEntropyLoss()
     for i in range(args.epoch - args.lp_epoch):
         for i, batch in enumerate(train_loader):
@@ -65,6 +67,8 @@ def finetune(args, model, train_loader, test_loader):
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
+        if args.scheduler:
+            scheduler.step()
         test_acc, test_loss = test_model(args, model, test_loader)
         print(test_acc, test_loss)
         args.log['test_acc'].append(test_acc)

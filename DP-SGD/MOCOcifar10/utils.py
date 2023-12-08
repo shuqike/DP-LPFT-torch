@@ -29,6 +29,7 @@ def get_args():
     parser.add_argument('--lplr', default=5e-5, type=float)
     parser.add_argument('--ftlr', default=5e-5, type=float)
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--scheduler', action='store_true')
     args = parser.parse_args()
     if args.device == '':
         args.device = "cuda" if torch.cuda.is_available() else \
